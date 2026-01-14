@@ -1,11 +1,11 @@
 # --- Stage 1: Build Stage ---
 FROM node:20-alpine AS builder
 
-# Set runtime environment
-ENV NODE_ENV=production
-
 # Set working directory
 WORKDIR /app
+
+# Ensure we are in development mode during build to install devDependencies
+ENV NODE_ENV=development
 
 # Copy package files first for better layer caching
 # We copy package-lock.json to ensure consistent builds
@@ -60,7 +60,7 @@ EXPOSE 3000
 # Health check to ensure the container is running and responding
 # wget is available in alpine and less heavy than curl
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Start the SvelteKit application using the built entry point
 CMD ["node", "build"]
