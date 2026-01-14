@@ -17,9 +17,16 @@ interface LoginResponse {
     mfaToken?: string;
 }
 
+import { loginSchema } from '$lib/utils/validation';
+
+// ... imports ...
+
 export const authService = {
     async login(username: string, password: string): Promise<LoginResponse> {
-        const data = await api.post<LoginResponse>('/auth/login', { username, password }, { requiresAuth: false });
+        const data = await api.post<LoginResponse>('/auth/login', { username, password }, {
+            requiresAuth: false,
+            schema: loginSchema
+        });
 
         if (data.mfaRequired) {
             authStore.update(s => ({ ...s, mfaRequired: true, mfaToken: data.mfaToken }));

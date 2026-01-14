@@ -75,11 +75,21 @@ function handleEvent(event: WebSocketEvent) {
 
     if (eventType === 'TransactionCompleted' || eventType === 'TransactionPending') {
         // Add to transactions
-        const { fromAccountId, transactionId, amount, currency } = data;
-        // We might need to construct a full Transaction object or fetch fresh
-        // For now, let's just invalidate or append if we have enough info
-        // The event data example only has basic fields. fetchTransactions might be safer to refresh.
-        // Or we optimistically add it.
+        const { fromAccountId, transactionId, amount, currency, description, date } = data;
+
+        if (fromAccountId) {
+            const newTransaction = {
+                id: transactionId,
+                accountId: fromAccountId,
+                date: date || new Date().toISOString(),
+                amount: amount,
+                currency: currency,
+                description: description || 'New Transaction',
+                status: eventType === 'TransactionCompleted' ? 'COMPLETED' : 'PENDING'
+            };
+
+            transactionsStore.addTransaction(newTransaction);
+        }
     }
 
     // Always notify

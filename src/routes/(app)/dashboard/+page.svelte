@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { accountsService } from '$lib/services/accountsService';
-  import { accountsStore } from '$lib/stores/accountsStore';
-  import AccountCard from '$lib/components/AccountCard.svelte';
-  
+  import { onMount } from "svelte";
+  import { accountsService } from "$lib/services/accountsService";
+  import { accountsStore } from "$lib/stores/accountsStore";
+  import AccountCard from "$lib/components/AccountCard.svelte";
+  import TransactionList from "$lib/components/TransactionList.svelte";
+
   // Could also list recent transactions here
-  
+
   onMount(() => {
     loadData();
   });
@@ -22,7 +23,7 @@
 
   $: accounts = $accountsStore.accounts;
   $: loading = $accountsStore.loading;
-  
+
   $: totalAssets = accounts.reduce((sum, acc) => sum + acc.balance, 0); // Simplified (currency mixing ignored for demo)
 </script>
 
@@ -43,7 +44,9 @@
         <AccountCard {account} />
       {/each}
     </div>
-    
+
+    <TransactionList />
+
     {#if accounts.length === 0 && !loading}
       <div class="empty">No accounts found.</div>
     {/if}
@@ -90,8 +93,9 @@
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.5rem;
   }
-  
-  .loading, .empty {
+
+  .loading,
+  .empty {
     text-align: center;
     color: #6b7280;
     padding: 2rem;
