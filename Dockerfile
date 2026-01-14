@@ -10,6 +10,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/build ./build
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npm install -g serve
 EXPOSE 3000
-CMD ["node", "build"]
+CMD ["npx", "serve", "-s", "build", "-l", "3000"]
