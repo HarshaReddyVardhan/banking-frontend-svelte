@@ -1,75 +1,66 @@
-# Build Stage
-FROM node:20-alpine AS build
+# --- Stage 1: Build Stage ---
+FROM node:20-alpine AS builder
 
+# Set runtime environment
+ENV NODE_ENV=production
+
+# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better layer caching
+# We copy package-lock.json to ensure consistent builds
 COPY package*.json ./
 
-# Install dependencies
+# Install ALL dependencies (including devDependencies needed for build)
+# Using 'npm ci' for reproducible builds in CI/CD environments
 RUN npm ci
 
-# Copy source and build
+# Copy the rest of the application source code
 COPY . .
+
+# Build the SvelteKit application
+# This generates the standalone Node.js server in the /build directory
 RUN npm run build
 
-# Production Stage - Use nginx for better security and performance
-FROM nginx:1.25-alpine AS production
+# Prune development dependencies to keep the production image lean
+RUN npm prune --production
 
-# Create non-root user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -S appuser -u 1001 -G appgroup
 
-# Remove default nginx config
-RUN rm /etc/nginx/conf.d/default.conf
+# --- Stage 2: Production Stage ---
+FROM node:20-alpine AS runner
 
-# Copy custom nginx config
-COPY <<EOF /etc/nginx/conf.d/app.conf
-server {
-    listen 3000;
-    server_name localhost;
-    root /usr/share/nginx/html;
-    index index.html;
+# Set environment variables for production
+ENV NODE_ENV=production
+ENV PORT=3000
+# SvelteKit specific: ensure it listens on all interfaces inside the container
+ENV BODY_SIZE_LIMIT=0 
 
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+# Set working directory
+WORKDIR /app
 
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+# Create a dedicated non-root user and group for the application
+# Security: Never run your application as root in a container
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S sveltejs -u 1001 -G nodejs
 
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
+# Copy only the necessary artifacts from the builder stage
+# /build: Contains the compiled server and client assets
+# /node_modules: Contains only production dependencies
+# package.json: Needed for some runtime metadata
+COPY --from=builder --chown=sveltejs:nodejs /app/build ./build
+COPY --from=builder --chown=sveltejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=sveltejs:nodejs /app/package.json ./package.json
 
-    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)\$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
+# Switch to the non-root user
+USER sveltejs
 
-    location /health {
-        return 200 'OK';
-        add_header Content-Type text/plain;
-    }
-}
-EOF
-
-# Copy built static files
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Fix permissions for non-root nginx
-RUN chown -R appuser:appgroup /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /usr/share/nginx/html && \
-    touch /var/run/nginx.pid && \
-    chown appuser:appgroup /var/run/nginx.pid
-
-# Switch to non-root user
-USER appuser
-
+# Expose the application port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+# Health check to ensure the container is running and responding
+# wget is available in alpine and less heavy than curl
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+# Start the SvelteKit application using the built entry point
+CMD ["node", "build"]
