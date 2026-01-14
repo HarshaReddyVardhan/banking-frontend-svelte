@@ -38,15 +38,34 @@ You can preview the production build with `npm run preview`.
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
 ## Docker Support
 
-To build and run the application inside Docker:
+### Build and Run with Docker Compose (Recommended)
+
+The easiest way to run the application is using Docker Compose:
+
+```sh
+# Build and start the container in detached mode
+docker-compose up -d --build
+```
+
+The application will be available at `http://localhost:3000`.
+
+### Build and Run with Docker CLI
+
+Alternatively, you can use the Docker CLI:
 
 ```sh
 # Build the Docker image
-docker build -t banking-frontend .
+docker build -t banking-frontend:latest .
 
 # Run the container
-docker run -d -p 3000:3000 --name banking-frontend-container banking-frontend
+docker run -d -p 3000:3000 --name banking-frontend banking-frontend:latest
 ```
 
-You can then access the app at `http://localhost:3000`.
+### Health Check
+
+The container includes a health check. You can verify the status with:
+
+```sh
+docker ps
+```
 
